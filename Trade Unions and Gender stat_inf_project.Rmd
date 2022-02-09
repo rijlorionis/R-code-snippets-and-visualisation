@@ -1,0 +1,217 @@
+
+
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `gss`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+According to the information about the data, "the General Social Survey (GSS) is a nationally representative survey of adults in the United States". It means that the respondents were chosen randomly, the observations are independent, and the data represents population of the US. The survey is characterized as "full-probability, personal-interview survey", and probability of sampling bias is low. 
+According to the Codebook, the database is a cumulative data of representative annual US polls from 1972 to 2012. 
+
+
+"The target population of the GSS is adults (18+) living in households in the United States. From 1972 to 2004 it was further restricted to those able to do the survey in English. From 2006 to present it has included those able to do the survey in English or Spanish."
+http://gss.norc.org/Pages/Faq.aspx
+
+The data collection was focused on investigation of households, so probable bias may occur because homeless people were underrepresented in the study. Before 2006 the GSS data could miss the Spanish-speaking US minorities.
+
+Nevertheless, in study purposes we can generalize outcomes of research based on the data to the US population from 1972 to 2012. However, we cannot state any casualties cause there was no random assignment of the respondents: only those, who wanted to answer questions, participated in the data collection
+
+* * *
+
+## Part 2: Research question
+
+The General Social Survey is very detailed, and it contains a question on belonging to labor unions it its core module.
+There is regular data on the variable since 1983:
+https://gssdataexplorer.norc.org/variables/584/vshow
+
+
+Labor unions are efficient tools for securing work places and collective salary negotiations. Thus, labor unions are among the most important organizations helping workers to oppose job and salary cuts  
+I would like to investigate, whether there is inequality in gender representation in US labor unions. If women are less represented in labor unions, they should feel less secure in American neoliberal economy.
+H0: Men and women are equally represented in US labor unions from 1983 to 2012, while minor differences are due to chance.
+HA: Proportions of men and women in US labor unions from 1983 to 2012 are not equal.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+Firstly, I want to look at distribution of data on belonging to union in GSS. In order to do it, I build barplot on distribution of answers in the variable. 
+
+
+```{r all-union-visualisation}
+ggplot(gss) + geom_bar(aes(x = union))
+
+```
+
+Most of respondents do not belong to labor unions and significant part did not answer the question about unions.
+However, I'm still not sure that membership of respondent or her/his spouse in labor union really influences family income. I make a side-by-side boxplot of "union" and "coninc" (inflation-adjusted family income).
+
+```{r fam_inc_union}
+boxplot(coninc ~ union, data = gss,  xlab = "Membership in union",
+   ylab = "Inflation-adjusted family income", main = "Membership in union and family income")
+```
+
+"R AND SPOUSE BELONG" is too long name to be depicted in the boxplot, but the plot shows that median income in constant dollars in families where at least one of the spouses belongs to a union is higher than in families without union members. Income of families where both respondent and her/his spouse belong to union is much higher than in families without union members.
+Let us look at family income among different groups in numbers. After filtering NA's from "union" and "coininc" variables, I calculate mean and median family income among different groups in "union".
+
+
+```{r by-means}
+gss %>%
+  filter(!is.na(union)) %>% 
+  filter(!is.na(coninc)) %>% 
+  group_by(union) %>%
+  summarise(mean_fam_inc = mean(coninc), med_fam_inc = median(coninc))
+  
+```
+
+There is an observed difference of both mean and median family income in different groups, and it proves that membership is an important issue.
+Does representation of men and women in labor unions different?
+Let us look at percentages of respondents belonging to union in the GSS. 
+
+```{r summary-union}
+gss %>%
+  filter(!is.na(union)) %>% 
+  group_by(union) %>% 
+  summarise(count=n()) %>%
+  mutate(perc_union = count/sum(count)*100)
+```
+Now I'm making two data sets of men and women, who responded to the question about the union.
+
+```{r males-unions}
+gss_males <- gss %>%
+  filter(sex == "Male", !is.na(union))
+```
+
+```{r fem-unions}
+gss_fem <- gss %>%
+  filter(sex == "Female", !is.na(union))
+```
+
+I build two plots of answers of male and female respondents on question about unions. 
+
+```{r fem-males-union-visualisation}
+ggplot(gss_males) + geom_bar(aes(x = union)) + ggtitle("Union membership of men")
+ggplot(gss_fem) + geom_bar(aes(x = union)) + ggtitle("Union membership of women")
+```
+
+According to accumulated data from 1973 to 2012, US women look significantly underrepresented in unions in comparison with US men. Let us compare percentages of men and women in unions. 
+
+```{r count-males-unions}
+gss_males %>% 
+  group_by(union) %>% 
+  summarise(count=n()) %>%
+  mutate(m_union = count/sum(count))
+```
+
+```{r perc-fem-unions}
+gss_fem %>%
+  group_by(union) %>% 
+  summarise(count=n()) %>%
+  mutate(f_union = count/sum(count))
+```
+According to the GSS 73-12 data, ratio of men belonging to union among those who responded to the question is more than two times higher than the ratio of women. But the data is just a sample from population.
+Could such a difference be due to chance? 
+
+* * *
+
+## Part 4: Inference
+
+I assume that the GSS data is representative to all the US population, but it is still a sample from the population. That is why before I say that difference between union participation among men and women is almost certain significant in the USA, I should understand whether the proportions of men and and women in labor unions are equal.
+H0: Proportions of men and women in labor unions are equal, while insignificant differences are due to chance.
+HA: Proportions of men and women in labor unions are not equal.
+Firstly, we should define a success in the trial. If all trials are equal to all answers on question about labor union, success is a membership in labor union both solo ("R Belongs") or with a spouse ("R And Spouse Belong").Than we should understand what are failures for our trial. GSS in more interested in households, while we are interested in individual participation. Thus, we count both response "Spouse Belongs" and "Neither Belongs" as failure. 
+Checking conditions. Number of successes and failures is much more than 5, so the success-failure condition is met in both proportions. Because each group is a random sample from less than 10% of the population, the observations are independent, both within the samples and between the samples. Because all conditions are met, each proportion separately follows a normal model.
+
+
+```{r prop}
+# Manually calculating number of successes, failures, and total number of trials among women
+fem_memb = 1560+346
+fem_nonmemb = 1683+18373
+f_all = fem_memb + fem_nonmemb
+
+# Manually calculating number of successes, failures, and total number of trials among men
+m_memb = 2864+282
+m_nonmemb = 373+13897
+m_all= m_memb + m_nonmemb
+
+# Testing difference of proportions. x is a number of successes in two proportions, n is a number of trials.
+prop.test(x = c(fem_memb, m_memb), n = c(f_all, m_all),
+           alternative = "two.sided", correct = FALSE)
+```
+
+Thus, we are 95% confident that the proportion of men and women in labor unions among those who responded to the question is not equal, and proportion of women belonging to labor union since 1972 to 2012 is from 10 to 8.7 % lower than proportion of men. However, from the data we need more research to learn about trends in gender representation in the unions in recent years. However, I'm tired and prefer to do it in the next time.
+
+
+
+```{r ololo}
+gss_un1 <- gss %>%
+  filter(!is.na(union), year > 2000)
+  table(gss_un1$union)
+```
+
+```{r ololo1}
+gss_un1 %>%
+  group_by(union, sex) %>%
+  summarise(u_count = n())
+```
+
+```{r ololo2}
+tb = table(gss_un1$sex, gss_un1$union)
+
+```
+
+
+```{r vis}
+table(gss_un1$sex, gss_un1$union)
+```
+
+
+
+```{r ololo-chi}
+chisq.test(tb)
+```
+
+
+```{r recent-prop}
+# Manually calculating number of successes, failures, and total number of trials among women
+rfem_memb = 424+84
+rfem_nonmemb = 277+5433
+rf_all = rfem_memb + rfem_nonmemb
+
+# Manually calculating number of successes, failures, and total number of trials among men
+rm_memb = 571+60
+rm_nonmemb = 119+4278
+rm_all= rm_memb + rm_nonmemb
+
+# Testing difference of proportions. x is a number of successes in two proportions, n is a number of trials.
+prop.test(x = c(rfem_memb, rm_memb), n = c(rf_all, rm_all),
+           alternative = "two.sided", correct = FALSE)
+```

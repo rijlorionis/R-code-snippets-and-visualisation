@@ -1,0 +1,221 @@
+---
+title: "The Stereotypebuster: data VS stereotypes about veterans and Texas exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `brfss2013`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+I investigated my research questions using Behavioral Risk Factor Surveillance System (BRFSS) 2013 dataset. It was collcted from the USA, the District of Columbia, Puerto Rico, and the U.S. Virgin Islands (The BRFSS Data User Guide 2013, p.3) using telephone survey that state health departments conduct monthly over landline telephones and cellular telephones with a standardized questionnaire (BRFSS website: https://www.cdc.gov/brfss/data_documentation/index.htm).  So, the survey has two randomized samples:
+"The BRFSS uses two samples: one for landline telephone respondents and one for cellular telephone respondents. Since landline telephones are often shared among persons living within a residence, household sampling is used in the landline sample. Household sampling requires interviewers to collect information on the number of adults living within a residence and then select randomly from all eligible adults. Cellular telephone respondents are weighted as single adult households" (The BRFSS Data User Guide 2013, p.6). Such method of sampling is close to multistage sampling.
+On base of ths information we could assume that respondents were randomly assigned and randomly sampled. That is why results are generalizable to most population of the USA, because the research was conducted there. However, it could be not generalizable for marginal groups that do not use landline or cellular telephones. Also, I'm not sure on telephone usage rate in Puerto Rico and the U.S. Virgin Islands. In case majority of the people there do not use phones, the assignment could not be random and the results could not be generalized to the states. 
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1: Do veterans are more likely to be divorces and less liely to be married than the population in general?**
+There is a movie stereotype that because of traumatic experience veterans could have problems with stable relations. In that case they should have higher level of "divorsed" and less "married" status than the  population. Let's check it with the data.
+
+**Research quesion 2: Do divorced veterans are the most vulnerble to emotional problems (menthlth) group in comparission with other divorced people? Let's define emotional problems as menthlth > 3**
+Imagine, that an organization of therapists with huge experience in helping divorced persons gained a grant to provide help to the most vulnerable groups. They cannot help all divorced persons, and they have to find out the group among divorced that needshelp mire than others. Military lobbist declares, this group is divorced veterans, but he doesn't give any data proving his statement. We check this statement with the data.
+
+**Research quesion 3: Do population of Texas have higher rates of high cholisterol (bloodcho: High Cholesterol Variable) and high blood pressure (High Blood Pressure Calculated Variable _rfhype5) than the population in general?**
+Imagine, that a cardiologist had a contract offer in Texas hospital. He remembers that there should be many meat restraunts in Texas. He thinks, that if consumption of meat in the state is high, there may be higher percentage of diagnosed high blood pressure and high level of cholisterol. In that case he could wider his prectice on the new place, and it would be good to accept an offer.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+**Research quesion 1: Do veterans are more likely to be divorces and less likely to be married than the population in general? **
+
+At first, let's look at distribution of marital statuses among the popuation. We exclude respondents, who didn't answer the question about their marital status and calculate percentage of different statuses in population (perc_marstat).
+
+```{r all_marital}
+  brfss2013 %>% 
+  filter(!is.na(marital)) %>%
+  group_by(marital) %>% 
+  summarise(count=n()) %>% 
+  mutate(perc_marstat = count/sum(count)*100) 
+
+```
+Then we should look at distribution of marital statuses among veterans. We filter all veterans fron the poulation and exclude people that did not answered question about marital status.
+
+```{r perc_veter_divorced}
+  brfss2013 %>%
+  filter(veteran3 == "Yes",!is.na(marital)) %>%
+  group_by(marital) %>% 
+  summarise(count=n()) %>%
+  mutate(perc_vetmarital = count/sum(count)*100)
+
+```
+
+So, it looks like the data dismantled the stereotype that veterans have difficulties in relations. Despite, percentage of divorced is slightly higher among veterans, percentage of married is significantly (more than 8%) higher. How it could happen? I suppose, there could be a confounding variable: age. Solgiers could not respond the survey while serving in army, and veterans could be older in a whole than the population. 
+
+**Research quesion 2:  Do divorced veterans are the most vulnerble to emotional problems (menthlth) group in comparission with other divorced people? Let's define emotional problems as menthlth > 3**
+
+At first, let's look on distribution of days of poor mental helth (menthlth variable) in the population. But we cannot do it in the brfss2013 database because of errors in the values of this variable (values 5000 and 247 are not supposed to be there). That is why we should make a new database excluding erroneous values and rows without data on mental health.
+The distribution is visualised on the histogram.
+
+
+```{r all_mentlhlth}
+  gen_mentlhlth <- brfss2013 %>%
+  filter(!is.na(menthlth), menthlth != 5000, menthlth != 247)
+  ggplot(data = gen_mentlhlth, aes(x = menthlth)) +
+  geom_histogram()
+  
+```
+
+
+  As far as we defined mental instability as poor mental health mothe than three days, we should count the ammount of respondents with fair and poor mental health.
+
+```{r all_poor_menthlth}
+  gen_mentlhlth %>% 
+  count(menthlth > 3)
+
+```
+Then we calculate percentage of poor mental health in population be division of ammount of respondents with more than three days of poor mental health to ammount of all respondents (we should take it from gen_mentlhlth database)
+
+```{r all_perc_menthlth} 
+96366/483146*100
+
+```
+So, 19.94% of the  population have emotional problems (in our definition).
+Let's look at distribution of poor mental health days among divorced persons in the histogram. We are making one more database for this purpose.
+
+```{r div_mentlhlth}
+  gen_div_mentlhlth <- brfss2013 %>%
+  filter(marital == "Divorced", !is.na(menthlth))
+  ggplot(data = gen_div_mentlhlth, aes(x = menthlth)) +
+  geom_histogram()
+  
+```
+
+At first sight, percentage of respondents having emotional problems 30 days in the month is significantly higher.SO, there should be more persons with emotional problems. But we should count percentage to state it definitely. 
+
+```{r div_poor_menthlth}
+  gen_div_mentlhlth %>% 
+  count(menthlth > 3) %>%
+  print
+
+```
+
+```{r div_perc_menthlth}
+18069/68883*100
+```
+More than 26% of divorce persons have emotional problems! Looks like a graet job for the theratists' organization. But should they focus on veterans?
+Let's make one more database and look on distribution of poor mental health days.
+
+```{r div-vet-mentlhlth}
+div_vet_mentlhlth <- gen_div_mentlhlth  %>%
+  filter(veteran3 == "Yes", !is.na(menthlth))
+  ggplot(data = div_vet_mentlhlth, aes(x = menthlth)) +
+  geom_histogram()
+```
+
+Looks similar to the previous distribution. But we should count percentage of veterans with mental health problems.
+
+```{r div_vet-poor_menthlth}
+  div_vet_mentlhlth %>% 
+  count(menthlth > 3)
+```
+
+
+```{r div-vet-poor-mentlhlth}
+2115/9485*100
+```
+
+22.3% of divorced veterans have mental health problems, while 26,2% of divorced persons in the population have mental health problems. So, divorced veterans are definitely not the most vulnerable group among all divorced persons. And what about not divorced veterans? Let's do another database just to feed our curiosity.
+
+```{r gen-not-div-mentlhlth}
+ndiv_vet_mentlhlth <- gen_mentlhlth  %>%
+  filter(veteran3 == "Yes", marital != "Divorced")
+  ggplot(data = ndiv_vet_mentlhlth, aes(x = menthlth)) +
+  geom_histogram()
+```
+
+```{r ndiv_vet-menthlth}
+  ndiv_vet_mentlhlth %>% 
+  count(menthlth > 3)
+```
+
+```{r ndiv-vet-poor-mentlhlth}
+7070/50606*100
+```
+
+Looks like veterans are quite stable group in issue of mental health. Divorsed veterans are a bit more vulnurable, but not the most vulnurable.
+
+**Research quesion 3: Do population of Texas have higher rates of high cholisterol (bloodcho, toldhi2 High Cholesterol Variable) and high blood pressure (High Blood Pressure, bphigh variable) than the population in general**
+Let's construct a table to look at distribution of diagnosed high blood pressure in the population. We exclude missed ansers on the question about high blood pressure
+
+```{r popul-bphigh}
+  brfss2013 %>%
+  filter(!is.na(bphigh4)) %>%
+  group_by(bphigh4) %>% 
+  summarise(count=n()) %>% 
+  mutate(perc_bphigh = count/sum(count)*100)
+```
+
+We found out that 40% of checked in the population were diagnosed high blood pressure. And what about Texas?
+
+```{r texas-bphigh}
+  brfss2013 %>%
+  filter(!is.na(bphigh4), X_state == "Texas") %>%
+  group_by(bphigh4) %>% 
+  summarise(count=n()) %>% 
+  mutate(perc_tex_bphigh = count/sum(count)*100)
+```
+
+39% were diagnosed high blood pressure in Texas. It is slightly lower than in the population.
+But what about cholisterine?
+The variable actually consists of two: bloodcho - was the level of cholisterine checked, and toldhi2 - did the doctors tell it was high. We should calculate only those who checked it and knows the results.
+
+```{r popul-chol}
+  brfss2013 %>%
+  filter(bloodcho == "Yes", !is.na(bloodcho), !is.na(toldhi2)) %>%
+  group_by(toldhi2) %>% 
+  summarise(count=n()) %>% 
+  mutate(perc_cho = count/sum(count)*100)
+```
+
+43.6% of those who checked cholisterine had its high level. And what's about Texas?
+
+```{r texas-chol}
+  brfss2013 %>%
+  filter(bloodcho == "Yes", X_state == "Texas", !is.na(bloodcho), !is.na(toldhi2)) %>%
+  group_by(toldhi2) %>% 
+  summarise(count=n()) %>% 
+  mutate(perc_tex_cho = count/sum(count)*100)
+```
+
+43.1 of patients, who checked cholisterine level were told, it was high. The percentage is almost the same as it is in the whole population. So, at least, among people who had checked it, there is the same level of cholisterine as in the USA. 
+The doctor might find a better state to wider his practice.
+
+
+
